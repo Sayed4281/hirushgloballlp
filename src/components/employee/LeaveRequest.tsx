@@ -113,7 +113,7 @@ const LeaveRequest: React.FC = () => {
         reason: formData.reason,
         description: formData.description,
         status: 'pending',
-        createdAt: new Date()
+        requestedAt: new Date()
       });
 
       setSuccess('Leave request submitted successfully!');

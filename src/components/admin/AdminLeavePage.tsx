@@ -13,8 +13,28 @@ interface Leave {
   reason: string;
   description: string;
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any;
+  createdAt: Date;
 }
+
+// Helper function to safely convert Firestore timestamp to Date
+const convertTimestampToDate = (timestamp: any): Date => {
+  try {
+    if (timestamp instanceof Date) {
+      return timestamp;
+    } else if (timestamp && typeof timestamp === 'object') {
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate();
+      } else if (timestamp.seconds && typeof timestamp.seconds === 'number') {
+        return new Date(timestamp.seconds * 1000);
+      }
+    } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+      return new Date(timestamp);
+    }
+  } catch (error) {
+    console.error('Error converting timestamp:', error);
+  }
+  return new Date(); // Fallback to current date
+};
 
 const AdminLeavePage: React.FC = () => {
   const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -42,44 +62,75 @@ const AdminLeavePage: React.FC = () => {
         throw new Error('Database connection not available');
       }
 
+      // Try to access both 'leaves' and 'leaveRequests' collections
       const leavesRef = collection(db, 'leaves');
-      console.log('Created collection reference');
+      const leaveRequestsRef = collection(db, 'leaveRequests');
+      console.log('Created collection references');
       
-      const querySnapshot = await getDocs(leavesRef);
-      console.log('Total documents found:', querySnapshot.size);
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocs(leavesRef);
+        console.log('Total documents found in leaves collection:', querySnapshot.size);
+      } catch (leavesError) {
+        console.log('Error accessing leaves collection, trying leaveRequests:', leavesError);
+        querySnapshot = await getDocs(leaveRequestsRef);
+        console.log('Total documents found in leaveRequests collection:', querySnapshot.size);
+      }
       
       const leaveList: Leave[] = [];
-      querySnapshot.forEach((docSnap) => {
-        try {
-          const data = docSnap.data();
-          console.log('Document data:', docSnap.id, data);
-          
-          // Validate required fields
-          if (data.employeeId && data.employeeName && data.startDate && data.endDate) {
-            leaveList.push({
-              id: docSnap.id,
+      
+      if (querySnapshot && querySnapshot.size > 0) {
+        querySnapshot.forEach((docSnap) => {
+          try {
+            const data = docSnap.data();
+            console.log('Document ID:', docSnap.id);
+            console.log('Document fields:', {
               employeeId: data.employeeId,
               employeeName: data.employeeName,
               startDate: data.startDate,
               endDate: data.endDate,
-              reason: data.reason || 'No reason provided',
-              description: data.description || '',
-              status: data.status || 'pending',
-              createdAt: data.createdAt || data.requestedAt || new Date()
+              status: data.status,
+              reason: data.reason
             });
-          } else {
-            console.warn('Skipping document with missing required fields:', docSnap.id, data);
+            
+            // More flexible validation - handle different data structures
+            const employeeId = data.employeeId || data.userId || '';
+            const employeeName = data.employeeName || data.name || data.employeeName || 'Unknown Employee';
+            const startDate = data.startDate || data.fromDate || '';
+            const endDate = data.endDate || data.toDate || '';
+            
+            if (employeeId && startDate && endDate) {
+              // Handle createdAt timestamp properly using helper function
+              const rawTimestamp = data.createdAt || data.requestedAt || data.submittedAt;
+              const processedCreatedAt = convertTimestampToDate(rawTimestamp);
+
+              leaveList.push({
+                id: docSnap.id,
+                employeeId,
+                employeeName,
+                startDate,
+                endDate,
+                reason: data.reason || data.leaveType || 'No reason provided',
+                description: data.description || data.notes || '',
+                status: data.status || 'pending',
+                createdAt: processedCreatedAt
+              });
+            } else {
+              console.warn('Skipping document with missing required fields:', docSnap.id, {
+                employeeId, employeeName, startDate, endDate
+              });
+            }
+          } catch (docError) {
+            console.error('Error processing document:', docSnap.id, docError);
           }
-        } catch (docError) {
-          console.error('Error processing document:', docSnap.id, docError);
-        }
-      });
+        });
+      }
       
       console.log('Total leaves processed:', leaveList.length);
       setLeaves(leaveList);
     } catch (err: any) {
       console.error('Error fetching leaves:', err);
-      setError(err.message || 'Failed to fetch leave requests');
+      setError(err.message || 'Failed to fetch leave requests. Please check your permissions.');
     } finally {
       setLoading(false);
     }
@@ -87,15 +138,29 @@ const AdminLeavePage: React.FC = () => {
 
   const updateLeaveStatus = async (leaveId: string, status: 'approved' | 'rejected') => {
     try {
-      await updateDoc(doc(db, 'leaves', leaveId), { status });
+      // Try both collections to update the status
+      try {
+        await updateDoc(doc(db, 'leaves', leaveId), { status });
+      } catch (leavesError) {
+        console.log('Error updating in leaves collection, trying leaveRequests:', leavesError);
+        await updateDoc(doc(db, 'leaveRequests', leaveId), { status });
+      }
       await fetchLeaves(); // Refresh the list
     } catch (err) {
       console.error('Error updating leave status:', err);
-      setError('Failed to update leave status');
+      setError('Failed to update leave status. Please check your permissions.');
     }
   };
 
   // Add early return if there's no user or if it's loading
+  if (loading && !user) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -167,12 +232,17 @@ const AdminLeavePage: React.FC = () => {
                         <div className="flex items-center space-x-1 mt-1">
                           <Clock className="w-3 h-3 text-gray-400" />
                           <span className="text-xs text-gray-500">
-                            Applied: {leave.createdAt instanceof Date 
-                              ? leave.createdAt.toLocaleDateString()
-                              : leave.createdAt.toDate
-                              ? leave.createdAt.toDate().toLocaleDateString()
-                              : 'Date not available'
-                            }
+                            Applied: {(() => {
+                              try {
+                                if (leave.createdAt instanceof Date) {
+                                  return leave.createdAt.toLocaleDateString();
+                                }
+                                return 'Date not available';
+                              } catch (error) {
+                                console.error('Error formatting createdAt date:', error);
+                                return 'Date not available';
+                              }
+                            })()}
                           </span>
                         </div>
                       )}

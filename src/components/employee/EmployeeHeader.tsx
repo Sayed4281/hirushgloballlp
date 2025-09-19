@@ -1,9 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, Clock } from 'lucide-react';
+import { useAttendance } from '../../contexts/AttendanceContext';
+import { 
+  User, 
+  Clock, 
+  PlayCircle, 
+  PauseCircle, 
+  Timer,
+  AlertCircle 
+} from 'lucide-react';
 
 const EmployeeHeader: React.FC = () => {
   const { user } = useAuth();
+  const { 
+    isCheckedIn, 
+    currentSession, 
+    loading, 
+    error, 
+    checkIn, 
+    checkOut, 
+    getCurrentSessionDuration,
+    formatDuration,
+    totalHoursToday
+  } = useAttendance();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -29,6 +48,64 @@ const EmployeeHeader: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-6">
+            {/* Attendance Controls */}
+            <div className="flex items-center space-x-4">
+              {/* Check In/Out Button */}
+              <div className="text-center">
+                {!isCheckedIn ? (
+                  <button
+                    onClick={checkIn}
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center space-x-2"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    <span>{loading ? 'Checking In...' : 'Check In'}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={checkOut}
+                    disabled={loading}
+                    className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center space-x-2"
+                  >
+                    <PauseCircle className="w-4 h-4" />
+                    <span>{loading ? 'Checking Out...' : 'Check Out'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Session Status */}
+              <div className="text-right bg-gray-50 rounded-lg px-3 py-2">
+                {isCheckedIn && currentSession ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2 text-green-700">
+                      <Timer className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        {formatDuration(getCurrentSessionDuration())}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      Since: {currentSession.loginTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <PauseCircle className="w-4 h-4" />
+                    <span className="text-sm">Not Working</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Daily Total */}
+              <div className="text-right bg-blue-50 rounded-lg px-3 py-2">
+                <div className="text-sm font-medium text-blue-900">
+                  {formatDuration((totalHoursToday * 60) + (isCheckedIn ? getCurrentSessionDuration() : 0))}
+                </div>
+                <div className="text-xs text-blue-700">
+                  Today's Total
+                </div>
+              </div>
+            </div>
+
             {/* Current Time */}
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900 flex items-center">
@@ -41,6 +118,16 @@ const EmployeeHeader: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="pb-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-red-600" />
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

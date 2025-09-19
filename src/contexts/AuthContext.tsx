@@ -45,14 +45,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             // Get employee data from Firestore
             const employeeDoc = await getDoc(doc(db, 'employees', firebaseUser.uid));
-            if (employeeDoc.exists()) {
+            if (employeeDoc.exists() && firebaseUser.email) {
               const employeeData = employeeDoc.data();
               setUser({
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 role: 'employee',
                 name: employeeData.name,
-                username: employeeData.username
+                username: employeeData.username,
+                workingHours: employeeData.workingHours
               });
             } else {
               // Employee not found in database
