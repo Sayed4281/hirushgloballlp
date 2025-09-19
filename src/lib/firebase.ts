@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 
 // Firebase Auth & Firestore
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -24,6 +24,12 @@ const analytics = getAnalytics(app);
 
 // Export Auth, Firestore, and Storage
 export const auth = getAuth(app);
+
+// Set authentication persistence to LOCAL (persists until explicitly signed out)
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Error setting auth persistence:', error);
+});
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export default app;

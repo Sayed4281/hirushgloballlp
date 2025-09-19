@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, Clock, MapPin } from 'lucide-react';
+import { User, Clock } from 'lucide-react';
 
 const EmployeeHeader: React.FC = () => {
   const { user } = useAuth();
@@ -29,12 +29,14 @@ const EmployeeHeader: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-6">
+            {/* Current Time */}
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900 flex items-center">
-                
+                <Clock className="w-4 h-4 mr-1" />
+                {currentTime.toLocaleTimeString()}
               </p>
-              <p className="text-xs text-gray-600 flex items-center">
-                
+              <p className="text-xs text-gray-600">
+                {currentTime.toLocaleDateString()}
               </p>
             </div>
           </div>

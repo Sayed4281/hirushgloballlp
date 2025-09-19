@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Users, MessageSquare, Calendar, BarChart3 } from 'lucide-react';
+import { LogOut, Users, MessageSquare, Calendar, BarChart3, FileText } from 'lucide-react';
 import EmployeeManagement from './EmployeeManagement';
 import AttendanceView from './AttendanceView';
 import MessageCenter from './MessageCenter';
+import AdminLeavePage from './AdminLeavePage';
 import AdminHeader from './AdminHeader';
 
-type TabType = 'employees' | 'attendance' | 'messages' | 'reports';
+type TabType = 'employees' | 'attendance' | 'leaves' | 'messages' | 'reports';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('employees');
@@ -15,6 +16,7 @@ const AdminDashboard: React.FC = () => {
   const tabs = [
     { id: 'employees' as TabType, label: 'Employees', icon: Users },
     { id: 'attendance' as TabType, label: 'Attendance', icon: Calendar },
+    { id: 'leaves' as TabType, label: 'Leave Requests', icon: FileText },
     { id: 'messages' as TabType, label: 'Messages', icon: MessageSquare },
     { id: 'reports' as TabType, label: 'Reports', icon: BarChart3 },
   ];
@@ -25,6 +27,8 @@ const AdminDashboard: React.FC = () => {
         return <EmployeeManagement />;
       case 'attendance':
         return <AttendanceView />;
+      case 'leaves':
+        return <AdminLeavePage />;
       case 'messages':
         return <MessageCenter />;
       case 'reports':

@@ -5,12 +5,14 @@ import {
   getDocs, 
   query, 
   orderBy,
-  where 
+  where,
+  onSnapshot,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Message, Employee } from '../../types';
-import { Send, MessageSquare, Users, AlertCircle } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle } from 'lucide-react';
 
 const MessageCenter: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -22,31 +24,45 @@ const MessageCenter: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-  Promise.all([fetchMessages(), fetchEmployees()]).finally(() => setLoading(false));
+    setupRealtimeMessages();
+    fetchEmployees().finally(() => setLoading(false));
   }, []);
 
-  const fetchMessages = async () => {
+  const setupRealtimeMessages = () => {
     try {
-      const q = query(collection(db, 'messages'), orderBy('sentAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const messageList: Message[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        messageList.push({
-          id: doc.id,
-          fromUserId: data.fromUserId,
-          fromUserName: data.fromUserName,
-          toUserId: data.toUserId,
-          toUserName: data.toUserName,
-          content: data.content,
-          sentAt: data.sentAt?.toDate ? data.sentAt.toDate() : new Date(),
-          isRead: data.isRead,
-          type: data.type
+      const q = query(collection(db, 'messages'));
+      
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const messageList: Message[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          messageList.push({
+            id: doc.id,
+            fromUserId: data.fromUserId,
+            fromUserName: data.fromUserName,
+            toUserId: data.toUserId,
+            toUserName: data.toUserName,
+            content: data.content,
+            sentAt: data.sentAt?.toDate ? data.sentAt.toDate() : new Date(),
+            isRead: data.isRead,
+            type: data.type
+          });
         });
+        
+        // Sort messages by date (newest first) - client-side sorting
+        messageList.sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+        
+        setMessages(messageList);
+      }, (error) => {
+        console.error('Error listening to messages:', error);
+        setError(error.message || 'Error fetching messages');
       });
-      setMessages(messageList);
+
+      // Return cleanup function
+      return unsubscribe;
     } catch (error: any) {
-      setError(error.message || 'Error fetching messages');
+      setError(error.message || 'Error setting up real-time messages');
     }
   };
 
@@ -80,17 +96,21 @@ const MessageCenter: React.FC = () => {
         fromUserId: user.uid,
         fromUserName: user.name || 'Admin',
         content: newMessage.trim(),
-        sentAt: new Date(),
+        sentAt: serverTimestamp(), // Use server timestamp for better sync
         isRead: false,
         type: selectedEmployee === 'all' ? 'broadcast' : 'direct'
       };
 
+      console.log('Sending message:', messageData);
+
       if (selectedEmployee === 'all') {
         // Broadcast message
+        console.log('Sending broadcast message');
         await addDoc(collection(db, 'messages'), messageData);
       } else {
         // Direct message
         const selectedEmp = employees.find(emp => emp.id === selectedEmployee);
+        console.log('Sending direct message to:', selectedEmp?.name, 'ID:', selectedEmployee);
         await addDoc(collection(db, 'messages'), {
           ...messageData,
           toUserId: selectedEmployee,
@@ -98,9 +118,10 @@ const MessageCenter: React.FC = () => {
         });
       }
 
+      console.log('Message sent successfully');
       setNewMessage('');
       setSelectedEmployee('all');
-      await fetchMessages();
+      // No need to call fetchMessages() as real-time listener will update automatically
     } catch (error: any) {
       setError(error.message || 'Failed to send message');
     } finally {
@@ -119,6 +140,14 @@ const MessageCenter: React.FC = () => {
       {/* Send Message Form */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Send Message</h2>
+        
+        {/* Debug Info */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+          <p><strong>Admin User:</strong> {user?.email}</p>
+          <p><strong>Employees Loaded:</strong> {employees.length}</p>
+          <p><strong>Selected Employee:</strong> {selectedEmployee === 'all' ? 'All Employees' : employees.find(e => e.id === selectedEmployee)?.name || 'Unknown'}</p>
+          <p><strong>Messages Count:</strong> {messages.length}</p>
+        </div>
         
         <form onSubmit={sendMessage} className="space-y-4">
           {error && (

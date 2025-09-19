@@ -21,7 +21,8 @@ const LeaveRequest: React.FC = () => {
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
-    reason: ''
+    reason: '',
+    description: ''
   });
   const { user } = useAuth();
 
@@ -53,6 +54,7 @@ const LeaveRequest: React.FC = () => {
           startDate: data.startDate.toDate(),
           endDate: data.endDate.toDate(),
           reason: data.reason,
+          description: data.description || '',
           status: data.status,
           requestedAt: data.requestedAt.toDate(),
           respondedAt: data.respondedAt ? data.respondedAt.toDate() : undefined,
@@ -66,7 +68,7 @@ const LeaveRequest: React.FC = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
@@ -97,18 +99,25 @@ const LeaveRequest: React.FC = () => {
         return;
       }
 
+      if (!formData.description.trim()) {
+        setError('Please provide a description for your leave request');
+        setLoading(false);
+        return;
+      }
+
       await addDoc(collection(db, 'leaves'), {
         employeeId: user.uid,
         employeeName: user.name || 'Employee',
         startDate,
         endDate,
         reason: formData.reason,
+        description: formData.description,
         status: 'pending',
-        requestedAt: new Date()
+        createdAt: new Date()
       });
 
       setSuccess('Leave request submitted successfully!');
-      setFormData({ startDate: '', endDate: '', reason: '' });
+      setFormData({ startDate: '', endDate: '', reason: '', description: '' });
       await fetchLeaveRequests();
     } catch (error: any) {
       setError(error.message || 'Failed to submit leave request');
@@ -200,15 +209,41 @@ const LeaveRequest: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Reason for Leave
             </label>
-            <textarea
+            <select
               name="reason"
               value={formData.reason}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={4}
-              placeholder="Please explain the reason for your leave request..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-            />
+            >
+              <option value="">Select a reason</option>
+              <option value="Annual Leave">Annual Leave</option>
+              <option value="Sick Leave">Sick Leave</option>
+              <option value="Emergency Leave">Emergency Leave</option>
+              <option value="Maternity/Paternity Leave">Maternity/Paternity Leave</option>
+              <option value="Bereavement Leave">Bereavement Leave</option>
+              <option value="Personal Leave">Personal Leave</option>
+              <option value="Study Leave">Study Leave</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <div className="relative">
+              <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                rows={4}
+                placeholder="Please provide additional details about your leave request..."
+                required
+              />
+            </div>
           </div>
 
           <button

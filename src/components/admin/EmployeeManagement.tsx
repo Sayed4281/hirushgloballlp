@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   collection, 
-  addDoc, 
   getDocs, 
   doc, 
   updateDoc,
   query,
   orderBy 
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '../../lib/firebase';
+import { db } from '../../lib/firebase';
 import { Employee } from '../../types';
 import { Plus, Search, Edit, UserCheck, UserX, Users } from 'lucide-react';
 import AddEmployeeModal from './AddEmployeeModal';
 import EditEmployeeModal from './EditEmployeeModal';
+import EmployeeDetails from './EmployeeDetails';
 
 import companyLogo from '../../assets/company-logo.png';
 const COMPANY_NAME = "Hirush Global LLP";
@@ -26,6 +25,7 @@ const EmployeeManagement: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [viewingEmployeeId, setViewingEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -38,10 +38,11 @@ const EmployeeManagement: React.FC = () => {
       const employeeList: Employee[] = [];
       
       querySnapshot.forEach((doc) => {
+        const data = doc.data();
         employeeList.push({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt.toDate()
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
         } as Employee);
       });
       
@@ -67,7 +68,8 @@ const EmployeeManagement: React.FC = () => {
   const filteredEmployees = employees.filter(employee =>
     employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.username.toLowerCase().includes(searchTerm.toLowerCase())
+    employee.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.role && employee.role.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -82,6 +84,16 @@ const EmployeeManagement: React.FC = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Show employee details if viewing a specific employee
+  if (viewingEmployeeId) {
+    return (
+      <EmployeeDetails
+        employeeId={viewingEmployeeId}
+        onBack={() => setViewingEmployeeId(null)}
+      />
     );
   }
 
@@ -125,6 +137,7 @@ const EmployeeManagement: React.FC = () => {
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Username</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
@@ -139,11 +152,21 @@ const EmployeeManagement: React.FC = () => {
                           {employee.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="font-medium text-gray-900">{employee.name}</span>
+                      <button
+                        onClick={() => setViewingEmployeeId(employee.id)}
+                        className="font-medium text-blue-600 hover:text-blue-800 transition-colors text-left"
+                      >
+                        {employee.name}
+                      </button>
                     </div>
                   </td>
                   <td className="py-4 px-4 text-gray-700">{employee.email}</td>
                   <td className="py-4 px-4 text-gray-700">{employee.username}</td>
+                  <td className="py-4 px-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {employee.role || 'Employee'}
+                    </span>
+                  </td>
                   <td className="py-4 px-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       employee.isActive 

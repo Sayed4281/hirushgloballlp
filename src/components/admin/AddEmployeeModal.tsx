@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
+import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../../lib/firebase';
 import { X, User, Mail, Key, FileText, AlertCircle, CheckCircle } from 'lucide-react';
@@ -47,7 +47,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onEmployee
         email: formData.email,
         username: formData.username,
         role: formData.role,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
         isActive: true
       });
 

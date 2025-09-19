@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Clock, Calendar, MessageSquare, User } from 'lucide-react';
+import { LogOut, Clock, Calendar, MessageSquare, User, CalendarDays, FileText, History } from 'lucide-react';
 import AttendanceTracker from './AttendanceTracker';
 import EmployeeAttendanceHistory from './EmployeeAttendanceHistory';
 import EmployeeMessages from './EmployeeMessages';
 import EmployeeProfile from './EmployeeProfile';
+import EmployeeCalendar from './EmployeeCalendar';
+import LeaveRequest from './LeaveRequest';
+import EmployeeLeaveHistory from './EmployeeLeaveHistory';
 import EmployeeHeader from './EmployeeHeader';
 
-type TabType = 'attendance' | 'history' | 'messages' | 'profile';
+type TabType = 'attendance' | 'history' | 'calendar' | 'messages' | 'profile' | 'leave' | 'leaveHistory';
 
 const EmployeeDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('attendance');
@@ -16,6 +19,9 @@ const EmployeeDashboard: React.FC = () => {
   const tabs = [
     { id: 'attendance' as TabType, label: 'Attendance', icon: Clock },
     { id: 'history' as TabType, label: 'History', icon: Calendar },
+    { id: 'calendar' as TabType, label: 'Calendar', icon: CalendarDays },
+    { id: 'leave' as TabType, label: 'Leave Request', icon: FileText },
+    { id: 'leaveHistory' as TabType, label: 'My Leaves', icon: History },
     { id: 'messages' as TabType, label: 'Messages', icon: MessageSquare },
     { id: 'profile' as TabType, label: 'Profile', icon: User },
   ];
@@ -26,6 +32,12 @@ const EmployeeDashboard: React.FC = () => {
         return <AttendanceTracker />;
       case 'history':
         return <EmployeeAttendanceHistory />;
+      case 'calendar':
+        return <EmployeeCalendar />;
+      case 'leave':
+        return <LeaveRequest />;
+      case 'leaveHistory':
+        return <EmployeeLeaveHistory />;
       case 'messages':
         return <EmployeeMessages />;
       case 'profile':

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   collection, 
-  getDocs, 
   query, 
   where, 
   orderBy,
-  or 
+  or,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,13 +19,24 @@ const EmployeeMessages: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
     if (user) {
-      fetchMessages();
+      unsubscribe = setupRealtimeMessages();
     }
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [user]);
 
-  const fetchMessages = async () => {
+  const setupRealtimeMessages = () => {
     if (!user) return;
+
+    console.log('Setting up real-time messages for employee:', user.uid);
 
     try {
       const q = query(
@@ -33,32 +44,61 @@ const EmployeeMessages: React.FC = () => {
         or(
           where('toUserId', '==', user.uid),
           where('type', '==', 'broadcast')
-        ),
-        orderBy('sentAt', 'desc')
+        )
       );
 
-      const querySnapshot = await getDocs(q);
-      const messageList: Message[] = [];
+      console.log('Query created for employee messages');
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        messageList.push({
-          id: doc.id,
-          fromUserId: data.fromUserId,
-          fromUserName: data.fromUserName,
-          toUserId: data.toUserId,
-          toUserName: data.toUserName,
-          content: data.content,
-          sentAt: data.sentAt.toDate(),
-          isRead: data.isRead,
-          type: data.type
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        console.log('Received message update, document count:', querySnapshot.size);
+        const messageList: Message[] = [];
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log('Processing message:', data);
+          
+          // Handle serverTimestamp properly
+          let messageDate;
+          if (data.sentAt) {
+            if (typeof data.sentAt.toDate === 'function') {
+              messageDate = data.sentAt.toDate();
+            } else {
+              messageDate = new Date(data.sentAt);
+            }
+          } else {
+            messageDate = new Date(); // Fallback to current time
+          }
+          
+          messageList.push({
+            id: doc.id,
+            fromUserId: data.fromUserId,
+            fromUserName: data.fromUserName,
+            toUserId: data.toUserId,
+            toUserName: data.toUserName,
+            content: data.content,
+            sentAt: messageDate,
+            isRead: data.isRead,
+            type: data.type
+          });
         });
+
+        console.log('Setting messages for employee, count:', messageList.length);
+        
+        // Sort messages by date (newest first) - client-side sorting
+        messageList.sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+        
+        setMessages(messageList);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error listening to messages:', error);
+        setLoading(false);
       });
 
-      setMessages(messageList);
+      // Return cleanup function
+      return unsubscribe;
     } catch (error) {
-      console.error('Error fetching messages:', error);
-    } finally {
+      console.error('Error setting up real-time messages:', error);
       setLoading(false);
     }
   };
@@ -83,6 +123,14 @@ const EmployeeMessages: React.FC = () => {
       <div className="flex items-center space-x-3 mb-6">
         <Inbox className="w-6 h-6 text-blue-600" />
         <h2 className="text-2xl font-bold text-gray-900">Messages</h2>
+      </div>
+
+      {/* Debug Info */}
+      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+        <p><strong>User ID:</strong> {user?.uid}</p>
+        <p><strong>User Email:</strong> {user?.email}</p>
+        <p><strong>Messages Count:</strong> {messages.length}</p>
+        <p><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</p>
       </div>
 
       <div className="space-y-4">
