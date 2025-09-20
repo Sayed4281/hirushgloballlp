@@ -10,7 +10,7 @@ import {
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { LeaveRequest as LeaveRequestType } from '../../types';
-import { Calendar, FileText, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, FileText, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 
 const LeaveRequest: React.FC = () => {
@@ -36,35 +36,63 @@ const LeaveRequest: React.FC = () => {
     if (!user) return;
 
     try {
-      const q = query(
+      console.log('Fetching leave requests for user:', user.uid);
+      
+      // First try with orderBy
+      let q = query(
         collection(db, 'leaves'),
         where('employeeId', '==', user.uid),
         orderBy('requestedAt', 'desc')
       );
       
-      const querySnapshot = await getDocs(q);
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocs(q);
+        console.log('Query with orderBy successful. Snapshot size:', querySnapshot.size);
+      } catch (indexError) {
+        console.warn('Query with orderBy failed (likely missing index), trying without orderBy:', indexError);
+        // Fallback: query without orderBy
+        q = query(
+          collection(db, 'leaves'),
+          where('employeeId', '==', user.uid)
+        );
+        querySnapshot = await getDocs(q);
+        console.log('Query without orderBy successful. Snapshot size:', querySnapshot.size);
+      }
+      
       const requests: LeaveRequestType[] = [];
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        requests.push({
-          id: doc.id,
-          employeeId: data.employeeId,
-          employeeName: data.employeeName,
-          startDate: data.startDate.toDate(),
-          endDate: data.endDate.toDate(),
-          reason: data.reason,
-          description: data.description || '',
-          status: data.status,
-          requestedAt: data.requestedAt.toDate(),
-          respondedAt: data.respondedAt ? data.respondedAt.toDate() : undefined,
-          adminNote: data.adminNote
-        });
+        console.log('Processing document:', doc.id, data);
+        
+        try {
+          requests.push({
+            id: doc.id,
+            employeeId: data.employeeId,
+            employeeName: data.employeeName,
+            startDate: data.startDate.toDate(),
+            endDate: data.endDate.toDate(),
+            reason: data.reason,
+            description: data.description || '',
+            status: data.status,
+            requestedAt: data.requestedAt.toDate(),
+            respondedAt: data.respondedAt ? data.respondedAt.toDate() : undefined,
+            adminNote: data.adminNote
+          });
+        } catch (docError) {
+          console.error('Error processing document:', doc.id, docError);
+        }
       });
       
+      // Sort manually if we couldn't use orderBy
+      requests.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+      
+      console.log('Total requests found:', requests.length);
       setLeaveRequests(requests);
     } catch (error) {
       console.error('Error fetching leave requests:', error);
+      setError('Failed to load leave requests. Please try again.');
     }
   };
 
@@ -116,6 +144,7 @@ const LeaveRequest: React.FC = () => {
         requestedAt: new Date()
       });
 
+      console.log('Leave request saved successfully');
       setSuccess('Leave request submitted successfully!');
       setFormData({ startDate: '', endDate: '', reason: '', description: '' });
       await fetchLeaveRequests();
@@ -259,7 +288,20 @@ const LeaveRequest: React.FC = () => {
 
       {/* Leave Request History */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Leave Request History</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Leave Request History</h2>
+          <button
+            onClick={fetchLeaveRequests}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+        
+        <div className="mb-4 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+          Debug: Total requests: {leaveRequests.length} | Loading: {loading ? 'Yes' : 'No'} | User: {user?.uid}
+        </div>
         
         <div className="space-y-4">
           {leaveRequests.map((request) => (

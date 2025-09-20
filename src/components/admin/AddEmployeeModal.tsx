@@ -8,9 +8,10 @@ import { generateEmployeeId, getDefaultWorkingHours, type EmployeeRole } from '.
 interface AddEmployeeModalProps {
   onClose: () => void;
   onEmployeeAdded: () => void;
+  onEmployeeCreated?: (employeeId: string) => void;
 }
 
-const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onEmployeeAdded }) => {
+const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onEmployeeAdded, onEmployeeCreated }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -85,6 +86,10 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onEmployee
       setSuccess(true);
       setTimeout(() => {
         onEmployeeAdded();
+        // Navigate to employee details if callback provided
+        if (onEmployeeCreated) {
+          onEmployeeCreated(userCredential.user.uid);
+        }
         onClose();
       }, 1500);
     } catch (error: any) {

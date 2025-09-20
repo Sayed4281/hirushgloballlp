@@ -1,28 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useAttendance } from '../../contexts/AttendanceContext';
 import { 
   User, 
-  Clock, 
-  PlayCircle, 
-  PauseCircle, 
-  Timer,
-  AlertCircle 
+  Clock
 } from 'lucide-react';
 
 const EmployeeHeader: React.FC = () => {
   const { user } = useAuth();
-  const { 
-    isCheckedIn, 
-    currentSession, 
-    loading, 
-    error, 
-    checkIn, 
-    checkOut, 
-    getCurrentSessionDuration,
-    formatDuration,
-    totalHoursToday
-  } = useAttendance();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -34,100 +18,40 @@ const EmployeeHeader: React.FC = () => {
   }, []);
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="shadow-sm border-b-2" style={{ background: '#102e50', borderColor: '#FFB74D' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
+        <div className="flex justify-between items-center py-3 sm:py-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-emerald-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center" style={{ background: '#FFB74D' }}>
+              <User className="w-4 h-4 sm:w-6 sm:h-6" style={{ color: '#102e50' }} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Employee Portal</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
+              <h1 className="text-lg sm:text-xl font-bold" style={{ color: '#fff' }}>Employee Portal</h1>
+              <p className="text-xs sm:text-sm opacity-80" style={{ color: '#FFB74D' }}>
+                Welcome back, {user?.name || 'Employee'}
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-6">
-            {/* Attendance Controls */}
-            <div className="flex items-center space-x-4">
-              {/* Check In/Out Button */}
-              <div className="text-center">
-                {!isCheckedIn ? (
-                  <button
-                    onClick={checkIn}
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center space-x-2"
-                  >
-                    <PlayCircle className="w-4 h-4" />
-                    <span>{loading ? 'Checking In...' : 'Check In'}</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={checkOut}
-                    disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center space-x-2"
-                  >
-                    <PauseCircle className="w-4 h-4" />
-                    <span>{loading ? 'Checking Out...' : 'Check Out'}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Session Status */}
-              <div className="text-right bg-gray-50 rounded-lg px-3 py-2">
-                {isCheckedIn && currentSession ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2 text-green-700">
-                      <Timer className="w-4 h-4" />
-                      <span className="text-sm font-medium">
-                        {formatDuration(getCurrentSessionDuration())}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      Since: {currentSession.loginTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2 text-gray-500">
-                    <PauseCircle className="w-4 h-4" />
-                    <span className="text-sm">Not Working</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Daily Total */}
-              <div className="text-right bg-blue-50 rounded-lg px-3 py-2">
-                <div className="text-sm font-medium text-blue-900">
-                  {formatDuration((totalHoursToday * 60) + (isCheckedIn ? getCurrentSessionDuration() : 0))}
-                </div>
-                <div className="text-xs text-blue-700">
-                  Today's Total
-                </div>
-              </div>
-            </div>
-
+          <div className="flex items-center space-x-3 sm:space-x-6">
             {/* Current Time */}
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900 flex items-center">
-                <Clock className="w-4 h-4 mr-1" />
-                {currentTime.toLocaleTimeString()}
+              <p className="text-xs sm:text-sm font-medium flex items-center justify-end" style={{ color: '#fff' }}>
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <span className="hidden sm:inline">{currentTime.toLocaleTimeString()}</span>
+                <span className="sm:hidden">{currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </p>
-              <p className="text-xs text-gray-600">
-                {currentTime.toLocaleDateString()}
+              <p className="text-xs opacity-80" style={{ color: '#FFB74D' }}>
+                {currentTime.toLocaleDateString([], {month: 'short', day: 'numeric'})}
               </p>
+            </div>
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center" style={{ background: '#FFB74D' }}>
+              <span className="text-xs sm:text-sm font-bold" style={{ color: '#102e50' }}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
+              </span>
             </div>
           </div>
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="pb-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );

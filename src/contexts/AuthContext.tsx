@@ -47,16 +47,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const employeeDoc = await getDoc(doc(db, 'employees', firebaseUser.uid));
             if (employeeDoc.exists() && firebaseUser.email) {
               const employeeData = employeeDoc.data();
+              
+              // Check if employee is active
+              if (employeeData.isActive === false) {
+                // Employee is inactive, sign them out
+                await firebaseSignOut(auth);
+                throw new Error('Your account has been deactivated. Please contact your administrator.');
+              }
+              
               setUser({
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
-                role: 'employee',
+                role: employeeData.role || 'employee',
                 name: employeeData.name,
                 username: employeeData.username,
                 workingHours: employeeData.workingHours
               });
             } else {
               // Employee not found in database
+              await firebaseSignOut(auth);
               setUser(null);
             }
           }
@@ -74,7 +83,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // If not admin, check if employee is active
+    if (email !== 'hirush@admin.com') {
+      const employeeDoc = await getDoc(doc(db, 'employees', userCredential.user.uid));
+      if (employeeDoc.exists()) {
+        const employeeData = employeeDoc.data();
+        if (employeeData.isActive === false) {
+          // Sign out immediately if inactive
+          await firebaseSignOut(auth);
+          throw new Error('Your account has been deactivated. Please contact your administrator.');
+        }
+      } else {
+        // Employee not found in database
+        await firebaseSignOut(auth);
+        throw new Error('Employee account not found. Please contact your administrator.');
+      }
+    }
   };
 
   const signOut = async () => {

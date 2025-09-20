@@ -309,16 +309,34 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
             </span>
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{employee.name}</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex items-center space-x-3 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900">{employee.name}</h1>
+              {employee.employeeId && (
+                <span className="bg-blue-100 text-blue-800 text-sm font-mono px-2 py-1 rounded">
+                  {employee.employeeId}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="flex items-center space-x-2 text-gray-600">
                 <Mail className="w-4 h-4" />
-                <span>{employee.email}</span>
+                <span className="text-sm">{employee.email}</span>
               </div>
               <div className="flex items-center space-x-2 text-gray-600">
                 <User className="w-4 h-4" />
-                <span>{employee.username}</span>
+                <span className="text-sm">{employee.username}</span>
               </div>
+              {employee.role && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    employee.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                    employee.role === 'intern' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    {employee.role.charAt(0).toUpperCase() + employee.role.slice(1)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center space-x-2 text-gray-600">
                 <Activity className="w-4 h-4" />
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -329,9 +347,43 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
               </div>
               <div className="flex items-center space-x-2 text-gray-600">
                 <Calendar className="w-4 h-4" />
-                <span>Joined {formatDistance(employee.createdAt, new Date(), { addSuffix: true })}</span>
+                <span className="text-sm">Joined {formatDistance(employee.createdAt, new Date(), { addSuffix: true })}</span>
               </div>
             </div>
+            
+            {/* Working Hours Information */}
+            {employee.workingHours && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <Clock className="w-4 h-4 mr-1" />
+                  Working Hours
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                  <div>
+                    <span className="font-medium">Schedule:</span> {employee.workingHours.startTime} - {employee.workingHours.endTime}
+                  </div>
+                  <div>
+                    <span className="font-medium">Hours/Day:</span> {employee.workingHours.totalHoursPerDay}h
+                  </div>
+                  <div>
+                    <span className="font-medium">Hours/Week:</span> {employee.workingHours.totalHoursPerWeek}h
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className="font-medium text-sm text-gray-700">Working Days:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {employee.workingHours.workingDays.map((day) => (
+                      <span
+                        key={day}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded"
+                      >
+                        {day.substring(0, 3)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

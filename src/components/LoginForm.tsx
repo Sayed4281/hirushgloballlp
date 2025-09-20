@@ -25,37 +25,42 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#102e50' }}>
-      <div className="max-w-md w-full rounded-2xl shadow-xl p-8" style={{ background: '#fff', color: '#102e50' }}>
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: '#102e50' }}>
-            <img src={companyLogo} alt="Company Logo" className="w-12 h-12 object-contain" />
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8" style={{ background: '#102e50' }}>
+      <div className="max-w-md w-full rounded-2xl shadow-xl p-6 sm:p-8" style={{ background: '#fff' }}>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 bg-white border-2 shadow-lg" style={{ borderColor: '#FFB74D' }}>
+            <img src={companyLogo} alt="Company Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#FFB74D' }}>Hirush Global LLP</h1>
-          <p className="mt-2" style={{ color: '#102e50' }}>Sign in to your account</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold" style={{ color: '#FFB74D' }}>Hirush Global LLP</h1>
+          <p className="mt-2 text-sm sm:text-base" style={{ color: '#102e50' }}>Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-center space-x-3">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+              <p className="text-red-700 text-xs sm:text-sm">{error}</p>
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-xs sm:text-sm font-medium mb-2" style={{ color: '#102e50' }}>
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5" style={{ color: '#FFB74D' }} />
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                style={{ background: '#fff', color: '#102e50' }}
+                className="w-full pl-10 sm:pl-12 pr-4 py-2 sm:py-3 border-2 rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base"
+                style={{ 
+                  background: '#fff', 
+                  color: '#102e50',
+                  borderColor: '#FFB74D',
+                  focusRingColor: '#FFB74D'
+                }}
                 placeholder="Enter your email"
                 required
               />
@@ -63,19 +68,23 @@ const LoginForm: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-xs sm:text-sm font-medium mb-2" style={{ color: '#102e50' }}>
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5" style={{ color: '#FFB74D' }} />
               <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full pl-10 sm:pl-12 pr-4 py-2 sm:py-3 border-2 rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base"
                 placeholder="Enter your password"
-                style={{ background: '#fff', color: '#102e50' }}
+                style={{ 
+                  background: '#fff', 
+                  color: '#102e50',
+                  borderColor: '#FFB74D'
+                }}
                 required
               />
             </div>
@@ -84,21 +93,22 @@ const LoginForm: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 sm:py-3 rounded-lg font-medium hover:opacity-90 focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex items-center justify-center space-x-2"
             style={{ background: '#FFB74D', color: '#102e50' }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
+                <span>Signing in...</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
+              </>
+            )}
           </button>
         </form>
-
-        <div className="mt-8 text-center">
-          <div className="bg-white rounded-lg p-4" style={{ color: '#102e50' }}>
-            <p className="text-sm mb-2">Demo Credentials:</p>
-            <p className="text-xs">
-              <strong>Admin:</strong> hirush@admin.com / hirush786
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

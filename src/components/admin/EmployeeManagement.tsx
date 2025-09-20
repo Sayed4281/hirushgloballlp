@@ -4,12 +4,13 @@ import {
   getDocs, 
   doc, 
   updateDoc,
+  deleteDoc,
   query,
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Employee } from '../../types';
-import { Plus, Search, Edit, UserCheck, UserX, Users } from 'lucide-react';
+import { Plus, Search, Edit, UserCheck, UserX, Users, Trash2 } from 'lucide-react';
 import AddEmployeeModal from './AddEmployeeModal';
 import EditEmployeeModal from './EditEmployeeModal';
 import EmployeeDetails from './EmployeeDetails';
@@ -26,6 +27,8 @@ const EmployeeManagement: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [viewingEmployeeId, setViewingEmployeeId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -63,6 +66,29 @@ const EmployeeManagement: React.FC = () => {
     } catch (error) {
       console.error('Error updating employee status:', error);
     }
+  };
+
+  const handleDeleteEmployee = (employee: Employee) => {
+    setEmployeeToDelete(employee);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
+    
+    try {
+      await deleteDoc(doc(db, 'employees', employeeToDelete.id));
+      await fetchEmployees();
+      setShowDeleteConfirm(false);
+      setEmployeeToDelete(null);
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+    }
+  };
+
+  const cancelDeleteEmployee = () => {
+    setShowDeleteConfirm(false);
+    setEmployeeToDelete(null);
   };
 
   const filteredEmployees = employees.filter(employee =>
@@ -218,6 +244,13 @@ const EmployeeManagement: React.FC = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
+                      <button
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Delete Employee"
+                        onClick={() => handleDeleteEmployee(employee)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -238,6 +271,10 @@ const EmployeeManagement: React.FC = () => {
         <AddEmployeeModal
           onClose={() => setShowAddModal(false)}
           onEmployeeAdded={fetchEmployees}
+          onEmployeeCreated={(employeeId) => {
+            setShowAddModal(false);
+            setViewingEmployeeId(employeeId);
+          }}
         />
       )}
 
@@ -247,6 +284,41 @@ const EmployeeManagement: React.FC = () => {
           onClose={() => { setShowEditModal(false); setSelectedEmployee(null); }}
           onEmployeeUpdated={fetchEmployees}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && employeeToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            
+            <h3 className="text-xl font-semibold text-gray-900 text-center mb-2">
+              Delete Employee
+            </h3>
+            
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to delete <strong>{employeeToDelete.name}</strong>? 
+              This action cannot be undone and the employee will no longer be able to access their account.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={cancelDeleteEmployee}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteEmployee}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

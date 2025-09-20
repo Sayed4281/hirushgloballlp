@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Calendar, Clock, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, FileText, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Leave {
@@ -15,26 +15,6 @@ interface Leave {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
 }
-
-// Helper function to safely convert Firestore timestamp to Date
-const convertTimestampToDate = (timestamp: any): Date => {
-  try {
-    if (timestamp instanceof Date) {
-      return timestamp;
-    } else if (timestamp && typeof timestamp === 'object') {
-      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-        return timestamp.toDate();
-      } else if (timestamp.seconds && typeof timestamp.seconds === 'number') {
-        return new Date(timestamp.seconds * 1000);
-      }
-    } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
-      return new Date(timestamp);
-    }
-  } catch (error) {
-    console.error('Error converting timestamp:', error);
-  }
-  return new Date(); // Fallback to current date
-};
 
 const AdminLeavePage: React.FC = () => {
   const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -56,26 +36,18 @@ const AdminLeavePage: React.FC = () => {
     setError('');
     
     try {
-      console.log('Starting to fetch leaves...');
+      console.log('Starting to fetch leaves for admin view...');
       
       if (!db) {
         throw new Error('Database connection not available');
       }
 
-      // Try to access both 'leaves' and 'leaveRequests' collections
+      // Try to access 'leaves' collection (same as employee page)
       const leavesRef = collection(db, 'leaves');
-      const leaveRequestsRef = collection(db, 'leaveRequests');
-      console.log('Created collection references');
+      console.log('Created collection reference for leaves');
       
-      let querySnapshot;
-      try {
-        querySnapshot = await getDocs(leavesRef);
-        console.log('Total documents found in leaves collection:', querySnapshot.size);
-      } catch (leavesError) {
-        console.log('Error accessing leaves collection, trying leaveRequests:', leavesError);
-        querySnapshot = await getDocs(leaveRequestsRef);
-        console.log('Total documents found in leaveRequests collection:', querySnapshot.size);
-      }
+      const querySnapshot = await getDocs(leavesRef);
+      console.log('Total documents found in leaves collection:', querySnapshot.size);
       
       const leaveList: Leave[] = [];
       
@@ -83,41 +55,42 @@ const AdminLeavePage: React.FC = () => {
         querySnapshot.forEach((docSnap) => {
           try {
             const data = docSnap.data();
-            console.log('Document ID:', docSnap.id);
-            console.log('Document fields:', {
+            console.log('Processing admin document ID:', docSnap.id);
+            console.log('Document data:', {
               employeeId: data.employeeId,
               employeeName: data.employeeName,
               startDate: data.startDate,
               endDate: data.endDate,
               status: data.status,
-              reason: data.reason
+              reason: data.reason,
+              description: data.description,
+              requestedAt: data.requestedAt
             });
             
-            // More flexible validation - handle different data structures
-            const employeeId = data.employeeId || data.userId || '';
-            const employeeName = data.employeeName || data.name || data.employeeName || 'Unknown Employee';
-            const startDate = data.startDate || data.fromDate || '';
-            const endDate = data.endDate || data.toDate || '';
+            // Use consistent field names with employee page
+            const employeeId = data.employeeId;
+            const employeeName = data.employeeName || 'Unknown Employee';
             
-            if (employeeId && startDate && endDate) {
-              // Handle createdAt timestamp properly using helper function
-              const rawTimestamp = data.createdAt || data.requestedAt || data.submittedAt;
-              const processedCreatedAt = convertTimestampToDate(rawTimestamp);
+            if (employeeId && data.startDate && data.endDate) {
+              // Convert Firebase timestamps to dates properly
+              const startDate = data.startDate.toDate ? data.startDate.toDate() : new Date(data.startDate);
+              const endDate = data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate);
+              const requestedAt = data.requestedAt?.toDate ? data.requestedAt.toDate() : new Date(data.requestedAt || Date.now());
 
               leaveList.push({
                 id: docSnap.id,
                 employeeId,
                 employeeName,
-                startDate,
-                endDate,
-                reason: data.reason || data.leaveType || 'No reason provided',
-                description: data.description || data.notes || '',
+                startDate: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+                endDate: endDate.toISOString().split('T')[0],
+                reason: data.reason || 'No reason provided',
+                description: data.description || '',
                 status: data.status || 'pending',
-                createdAt: processedCreatedAt
+                createdAt: requestedAt
               });
             } else {
               console.warn('Skipping document with missing required fields:', docSnap.id, {
-                employeeId, employeeName, startDate, endDate
+                employeeId, startDate: data.startDate, endDate: data.endDate
               });
             }
           } catch (docError) {
@@ -126,7 +99,10 @@ const AdminLeavePage: React.FC = () => {
         });
       }
       
-      console.log('Total leaves processed:', leaveList.length);
+      // Sort by request date (newest first)
+      leaveList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      console.log('Total leaves processed for admin:', leaveList.length);
       setLeaves(leaveList);
     } catch (err: any) {
       console.error('Error fetching leaves:', err);
@@ -138,13 +114,16 @@ const AdminLeavePage: React.FC = () => {
 
   const updateLeaveStatus = async (leaveId: string, status: 'approved' | 'rejected') => {
     try {
-      // Try both collections to update the status
-      try {
-        await updateDoc(doc(db, 'leaves', leaveId), { status });
-      } catch (leavesError) {
-        console.log('Error updating in leaves collection, trying leaveRequests:', leavesError);
-        await updateDoc(doc(db, 'leaveRequests', leaveId), { status });
-      }
+      console.log(`Updating leave ${leaveId} to status: ${status}`);
+      
+      // Update in leaves collection with additional fields
+      await updateDoc(doc(db, 'leaves', leaveId), { 
+        status,
+        respondedAt: new Date(),
+        adminNote: status === 'approved' ? 'Leave approved by admin' : 'Leave rejected by admin'
+      });
+      
+      console.log('Leave status updated successfully');
       await fetchLeaves(); // Refresh the list
     } catch (err) {
       console.error('Error updating leave status:', err);
@@ -174,9 +153,30 @@ const AdminLeavePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-3">
-        <FileText className="w-6 h-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Employee Leave Requests</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <FileText className="w-6 h-6 text-blue-600" />
+          <h2 className="text-2xl font-bold text-gray-900">Employee Leave Requests</h2>
+        </div>
+        <button
+          onClick={fetchLeaves}
+          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          title="Refresh Data"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Debug Information */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h3>
+        <div className="text-xs text-gray-600 space-y-1">
+          <div>Total leave requests found: {leaves.length}</div>
+          <div>Loading state: {loading ? 'Yes' : 'No'}</div>
+          <div>User authenticated: {user ? 'Yes' : 'No'}</div>
+          <div>User ID: {user?.uid || 'Not available'}</div>
+          <div>Error state: {error || 'No errors'}</div>
+        </div>
       </div>
 
       {loading && (
