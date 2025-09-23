@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, MessageSquare, User, CalendarDays, FileText } from 'lucide-react';
+import { LogOut, MessageSquare, User, CalendarDays, FileText, Clock } from 'lucide-react';
 import EmployeeMessages from './EmployeeMessages';
 import EmployeeProfile from './EmployeeProfile';
 import EmployeeCalendar from './EmployeeCalendar';
 import EmployeeHeader from './EmployeeHeader';
 import LeaveRequest from './LeaveRequest';
+import AttendancePage from './AttendancePage';
 
-type TabType = 'calendar' | 'messages' | 'profile' | 'leave';
+type TabType = 'calendar' | 'attendance' | 'messages' | 'profile' | 'leave';
 
 const EmployeeDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('calendar');
+  const [activeTab, setActiveTab] = useState<TabType>('attendance');
   const { signOut } = useAuth();
 
   const tabs = [
     { id: 'calendar' as TabType, label: 'Calendar', icon: CalendarDays },
+    { id: 'attendance' as TabType, label: 'Attendance', icon: Clock },
     { id: 'leave' as TabType, label: 'Leave', icon: FileText },
     { id: 'messages' as TabType, label: 'Messages', icon: MessageSquare },
     { id: 'profile' as TabType, label: 'Profile', icon: User },
@@ -24,6 +26,8 @@ const EmployeeDashboard: React.FC = () => {
     switch (activeTab) {
       case 'calendar':
         return <EmployeeCalendar />;
+      case 'attendance':
+        return <AttendancePage />;
       case 'leave':
         return <LeaveRequest />;
       case 'messages':
@@ -96,7 +100,7 @@ const EmployeeDashboard: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 xl:hidden border-t-2 shadow-lg" style={{ background: '#102e50', borderColor: '#FFB74D' }}>
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -108,7 +112,7 @@ const EmployeeDashboard: React.FC = () => {
                 }`}
                 style={{ color: activeTab === tab.id ? '#FFB74D' : '#fff' }}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 <span className="text-xs font-medium">{tab.label}</span>
               </button>
             );

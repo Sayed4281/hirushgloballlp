@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAttendanceTracking } from '../../hooks/useAttendanceTracking';
 import { 
   User, 
-  Clock
+  Clock,
+  LogIn,
+  LogOut,
+  Timer
 } from 'lucide-react';
 
 const EmployeeHeader: React.FC = () => {
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { isCheckedIn, workingTime, loading, checkIn, checkOut } = useAttendanceTracking();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -34,6 +39,40 @@ const EmployeeHeader: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-3 sm:space-x-6">
+            {/* Attendance Tracking Buttons */}
+            <div className="flex items-center space-x-2">
+              {!isCheckedIn ? (
+                <button
+                  onClick={checkIn}
+                  disabled={loading}
+                  className="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#4CAF50', color: 'white' }}
+                >
+                  <LogIn className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Check In</span>
+                  <span className="sm:hidden">In</span>
+                </button>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(76, 175, 80, 0.1)', color: '#4CAF50' }}>
+                    <Timer className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">{workingTime}</span>
+                    <span className="sm:hidden">{workingTime.split(':').slice(0, 2).join(':')}</span>
+                  </div>
+                  <button
+                    onClick={checkOut}
+                    disabled={loading}
+                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 hover:opacity-90 disabled:opacity-50"
+                    style={{ background: '#f44336', color: 'white' }}
+                  >
+                    <LogOut className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">Check Out</span>
+                    <span className="sm:hidden">Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Current Time */}
             <div className="text-right">
               <p className="text-xs sm:text-sm font-medium flex items-center justify-end" style={{ color: '#fff' }}>
