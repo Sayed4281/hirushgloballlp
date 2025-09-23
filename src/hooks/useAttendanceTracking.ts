@@ -38,7 +38,19 @@ export const useAttendanceTracking = () => {
   // Check if user is already checked in when component mounts
   useEffect(() => {
     if (user) {
-      checkCurrentStatus();
+      console.log('User changed, checking current attendance status...');
+      // Add a small delay to ensure Firebase auth is fully settled
+      const timeoutId = setTimeout(() => {
+        checkCurrentStatus();
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      // Reset state when user logs out
+      setIsCheckedIn(false);
+      setCurrentSession(null);
+      setAttendanceRecords([]);
+      setWorkingTime('00:00:00');
     }
   }, [user]);
 
@@ -82,6 +94,23 @@ export const useAttendanceTracking = () => {
         });
         setAttendanceRecords(records);
         console.log('Updated attendance records:', records.length);
+        
+        // Check if we need to update current session status
+        const today = new Date().toISOString().split('T')[0];
+        const todaysActiveSession = records.find(record => 
+          record.date === today && record.status === 'checked-in'
+        );
+        
+        if (todaysActiveSession && !currentSession) {
+          console.log('Found active session from real-time update');
+          setCurrentSession(todaysActiveSession);
+          setIsCheckedIn(true);
+        } else if (!todaysActiveSession && currentSession) {
+          console.log('Active session ended from real-time update');
+          setCurrentSession(null);
+          setIsCheckedIn(false);
+          setWorkingTime('00:00:00');
+        }
       },
       (error) => {
         console.error('Real-time listener error:', error);
@@ -92,7 +121,7 @@ export const useAttendanceTracking = () => {
       console.log('Cleaning up real-time listener');
       unsubscribe();
     };
-  }, [user]);
+  }, [user, currentSession]);
 
   const checkCurrentStatus = async () => {
     if (!user) return;
@@ -100,21 +129,25 @@ export const useAttendanceTracking = () => {
     try {
       console.log('Checking current attendance status for user:', user.uid);
       const today = new Date().toISOString().split('T')[0];
-      const q = query(
+      
+      // Query for any active (checked-in) sessions for today
+      const activeSessionQuery = query(
         collection(db, 'attendance'),
         where('employeeId', '==', user.uid),
         where('date', '==', today),
-        where('status', '==', 'checked-in')
+        where('status', '==', 'checked-in'),
+        orderBy('createdAt', 'desc')
       );
 
-      const querySnapshot = await getDocs(q);
-      console.log('Found', querySnapshot.size, 'active sessions');
+      const activeSnapshot = await getDocs(activeSessionQuery);
+      console.log('Found', activeSnapshot.size, 'active sessions for today');
       
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
+      if (!activeSnapshot.empty) {
+        // Get the most recent active session
+        const doc = activeSnapshot.docs[0];
         const data = doc.data();
         
-        console.log('Active session data:', data);
+        console.log('Restoring active session:', data);
         
         const session: AttendanceTracking = {
           id: doc.id,
@@ -131,12 +164,31 @@ export const useAttendanceTracking = () => {
 
         setCurrentSession(session);
         setIsCheckedIn(true);
-        console.log('Restored active session');
+        
+        // Calculate the current working time
+        const now = new Date();
+        const checkInTime = new Date(session.checkInTime);
+        const diffMs = now.getTime() - checkInTime.getTime();
+        
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+        
+        setWorkingTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        
+        console.log('Successfully restored active session with working time:', `${hours}:${minutes}:${seconds}`);
       } else {
-        console.log('No active session found');
+        console.log('No active session found for today');
+        setIsCheckedIn(false);
+        setCurrentSession(null);
+        setWorkingTime('00:00:00');
       }
     } catch (error) {
       console.error('Error checking current status:', error);
+      // Reset state on error
+      setIsCheckedIn(false);
+      setCurrentSession(null);
+      setWorkingTime('00:00:00');
     }
   };
 

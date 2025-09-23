@@ -38,81 +38,187 @@ interface EmployeeDetailsProps {
 }
 
 const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack }) => {
+  console.log('=== EmployeeDetails Component Initialized ===');
+  console.log('Employee ID received:', employeeId);
+  console.log('Employee ID type:', typeof employeeId);
+  
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'leaves'>('overview');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'analytics' | 'leaves'>('attendance');
   
   // Enhanced attendance view state
   const [dailyRecords, setDailyRecords] = useState<any[]>([]);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Analytics filtering and sorting state
+  const [analyticsFilter, setAnalyticsFilter] = useState<'all' | 'week' | 'month' | 'year'>('all');
+  const [analyticsSortBy, setAnalyticsSortBy] = useState<'date-desc' | 'date-asc' | 'duration-desc' | 'duration-asc'>('date-desc');
 
   useEffect(() => {
-    fetchEmployeeData();
+    console.log('=== useEffect triggered ===');
+    console.log('employeeId:', employeeId);
+    console.log('employeeId is truthy:', !!employeeId);
+    
+    if (employeeId) {
+      console.log('Calling fetchEmployeeData...');
+      fetchEmployeeData();
+    } else {
+      console.warn('No employeeId provided, skipping data fetch');
+    }
   }, [employeeId]);
 
   const fetchEmployeeData = async () => {
     try {
       setLoading(true);
+      console.log('Starting to fetch employee data for ID:', employeeId);
       
       // Fetch employee details
+      console.log('Fetching employee details...');
       const employeeDoc = await getDoc(doc(db, 'employees', employeeId));
       if (employeeDoc.exists()) {
         const data = employeeDoc.data();
+        console.log('Employee data found:', data);
         setEmployee({
           id: employeeDoc.id,
           ...data,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
         } as Employee);
+      } else {
+        console.error('Employee not found with ID:', employeeId);
       }
 
       // Fetch attendance records
-      const attendanceQuery = query(
-        collection(db, 'attendance'),
-        where('employeeId', '==', employeeId),
-        orderBy('date', 'desc')
-      );
-      const attendanceSnapshot = await getDocs(attendanceQuery);
+      console.log('Fetching attendance records for employee:', employeeId);
+      
+      let attendanceSnapshot;
+      try {
+        // First try with ordering by createdAt (preferred)
+        console.log('Trying query with createdAt ordering...');
+        const attendanceQueryWithOrder = query(
+          collection(db, 'attendance'),
+          where('employeeId', '==', employeeId),
+          orderBy('createdAt', 'desc')
+        );
+        attendanceSnapshot = await getDocs(attendanceQueryWithOrder);
+        console.log('Query with ordering successful, found records:', attendanceSnapshot.size);
+      } catch (orderError) {
+        console.warn('Query with ordering failed, trying without ordering:', orderError);
+        // Fallback to query without ordering
+        try {
+          const attendanceQueryNoOrder = query(
+            collection(db, 'attendance'),
+            where('employeeId', '==', employeeId)
+          );
+          attendanceSnapshot = await getDocs(attendanceQueryNoOrder);
+          console.log('Query without ordering successful, found records:', attendanceSnapshot.size);
+        } catch (fallbackError) {
+          console.error('Both queries failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
+      
       const attendanceList: AttendanceRecord[] = [];
       attendanceSnapshot.forEach((doc) => {
         const data = doc.data();
-        attendanceList.push({
-          id: doc.id,
-          ...data,
-          loginTime: data.loginTime?.toDate ? data.loginTime.toDate() : new Date(data.loginTime),
-          logoutTime: data.logoutTime?.toDate ? data.logoutTime.toDate() : (data.logoutTime ? new Date(data.logoutTime) : undefined)
-        } as AttendanceRecord);
+        console.log('Processing attendance record:', doc.id, data);
+        
+        try {
+          // Handle the field name differences between the two systems
+          const record = {
+            id: doc.id,
+            employeeId: data.employeeId,
+            employeeName: data.employeeName || data.name,
+            // Map checkInTime to loginTime for compatibility
+            loginTime: data.checkInTime?.toDate ? data.checkInTime.toDate() : 
+                      data.loginTime?.toDate ? data.loginTime.toDate() : 
+                      new Date(data.checkInTime || data.loginTime),
+            // Map checkOutTime to logoutTime for compatibility  
+            logoutTime: data.checkOutTime?.toDate ? data.checkOutTime.toDate() : 
+                       data.logoutTime?.toDate ? data.logoutTime.toDate() : 
+                       (data.checkOutTime || data.logoutTime ? new Date(data.checkOutTime || data.logoutTime) : undefined),
+            date: data.date,
+            duration: data.totalMinutes || data.duration,
+            location: data.location
+          } as AttendanceRecord;
+          
+          attendanceList.push(record);
+          console.log('Successfully processed record:', record);
+        } catch (error) {
+          console.error('Error processing attendance record:', error, data);
+        }
       });
+      
+      console.log('Total attendance records processed:', attendanceList.length);
       setAttendanceRecords(attendanceList);
 
       // Fetch leave requests
-      const leaveQuery = query(
-        collection(db, 'leaves'),
-        where('employeeId', '==', employeeId),
-        orderBy('requestedAt', 'desc')
-      );
-      const leaveSnapshot = await getDocs(leaveQuery);
+      console.log('Fetching leave requests for employee:', employeeId);
+      
+      let leaveSnapshot;
+      try {
+        // Try query with ordering first
+        console.log('Trying leave query with requestedAt ordering...');
+        const leaveQueryWithOrder = query(
+          collection(db, 'leaves'),
+          where('employeeId', '==', employeeId),
+          orderBy('requestedAt', 'desc')
+        );
+        leaveSnapshot = await getDocs(leaveQueryWithOrder);
+        console.log('Leave query with ordering successful, found records:', leaveSnapshot.size);
+      } catch (orderError) {
+        console.warn('Leave query with ordering failed, trying without ordering:', orderError);
+        // Fallback to query without ordering
+        try {
+          const leaveQueryNoOrder = query(
+            collection(db, 'leaves'),
+            where('employeeId', '==', employeeId)
+          );
+          leaveSnapshot = await getDocs(leaveQueryNoOrder);
+          console.log('Leave query without ordering successful, found records:', leaveSnapshot.size);
+        } catch (fallbackError) {
+          console.error('Both leave queries failed:', fallbackError);
+          // Don't throw here, just log and continue with empty array
+          console.log('Continuing with empty leave requests array');
+          leaveSnapshot = { size: 0, forEach: () => {} } as any;
+        }
+      }
+      
       const leaveList: LeaveRequest[] = [];
       leaveSnapshot.forEach((doc) => {
         const data = doc.data();
-        leaveList.push({
-          id: doc.id,
-          ...data,
-          startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
-          endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
-          requestedAt: data.requestedAt?.toDate ? data.requestedAt.toDate() : new Date(data.requestedAt),
-          respondedAt: data.respondedAt?.toDate ? data.respondedAt.toDate() : (data.respondedAt ? new Date(data.respondedAt) : undefined)
-        } as LeaveRequest);
+        console.log('Processing leave request:', doc.id, data);
+        
+        try {
+          leaveList.push({
+            id: doc.id,
+            ...data,
+            startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
+            endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+            requestedAt: data.requestedAt?.toDate ? data.requestedAt.toDate() : new Date(data.requestedAt),
+            respondedAt: data.respondedAt?.toDate ? data.respondedAt.toDate() : (data.respondedAt ? new Date(data.respondedAt) : undefined)
+          } as LeaveRequest);
+        } catch (error) {
+          console.error('Error processing leave request:', error, data);
+        }
       });
+      
+      console.log('Total leave requests processed:', leaveList.length);
       setLeaveRequests(leaveList);
 
     } catch (error) {
       console.error('Error fetching employee data:', error);
+      // Add more specific error information
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
     } finally {
       setLoading(false);
+      console.log('Finished fetching employee data');
     }
   };
 
@@ -199,6 +305,81 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
     return 'text-red-600';
   };
 
+  // Filter and sort analytics data
+  const getFilteredAndSortedRecords = () => {
+    let filtered = [...attendanceRecords];
+    
+    // Apply filter
+    const now = new Date();
+    switch (analyticsFilter) {
+      case 'week':
+        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+        filtered = filtered.filter(record => new Date(record.date) >= weekStart);
+        break;
+      case 'month':
+        filtered = filtered.filter(record => {
+          const recordDate = new Date(record.date);
+          return recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear();
+        });
+        break;
+      case 'year':
+        filtered = filtered.filter(record => {
+          const recordDate = new Date(record.date);
+          return recordDate.getFullYear() === now.getFullYear();
+        });
+        break;
+      default:
+        // 'all' - no additional filtering
+        break;
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (analyticsSortBy) {
+        case 'date-asc':
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'duration-desc':
+          return (b.duration || 0) - (a.duration || 0);
+        case 'duration-asc':
+          return (a.duration || 0) - (b.duration || 0);
+        case 'date-desc':
+        default:
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+      }
+    });
+    
+    return filtered;
+  };
+
+  // Test function to manually fetch data
+  const testDataFetch = async () => {
+    console.log('=== MANUAL DATA FETCH TEST ===');
+    try {
+      console.log('Testing Firestore connection...');
+      
+      // Test basic Firestore connection
+      const testQuery = query(collection(db, 'attendance'));
+      const testSnapshot = await getDocs(testQuery);
+      console.log('Total attendance records in database:', testSnapshot.size);
+      
+      // Test specific query for this employee
+      const specificQuery = query(
+        collection(db, 'attendance'),
+        where('employeeId', '==', employeeId)
+      );
+      const specificSnapshot = await getDocs(specificQuery);
+      console.log('Records for this employee:', specificSnapshot.size);
+      
+      // Log all records for this employee
+      specificSnapshot.forEach((doc) => {
+        console.log('Record:', doc.id, doc.data());
+      });
+      
+    } catch (error) {
+      console.error('Test data fetch failed:', error);
+    }
+  };
+
   const toggleExpanded = (date: string) => {
     setExpandedDate(expandedDate === date ? null : date);
   };
@@ -257,6 +438,7 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
   };
 
   if (loading) {
+    console.log('Rendering loading state...');
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="animate-pulse space-y-4">
@@ -267,20 +449,36 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
             ))}
           </div>
         </div>
+        <div className="mt-4 text-center text-gray-600">
+          <p>Loading employee data for ID: {employeeId}</p>
+          <p className="text-sm">Please wait...</p>
+        </div>
       </div>
     );
   }
 
   if (!employee) {
+    console.log('No employee data found, rendering error state...');
+    console.log('Employee state:', employee);
+    console.log('Loading state:', loading);
     return (
       <div className="bg-white rounded-lg shadow-md p-6 text-center">
         <p className="text-gray-600">Employee not found</p>
-        <button
-          onClick={onBack}
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Go Back
-        </button>
+        <p className="text-sm text-gray-500 mt-2">Employee ID: {employeeId}</p>
+        <div className="mt-4 space-y-2">
+          <button
+            onClick={testDataFetch}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 mr-2"
+          >
+            🔍 Debug Data Fetch
+          </button>
+          <button
+            onClick={onBack}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }
@@ -299,6 +497,14 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Employee Management</span>
+          </button>
+          
+          {/* Debug button - remove this in production */}
+          <button
+            onClick={testDataFetch}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-sm"
+          >
+            🔍 Test Data Fetch
           </button>
         </div>
 
@@ -393,8 +599,8 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
             {[
-              { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'attendance', label: 'Attendance History', icon: Clock },
+              { id: 'analytics', label: 'Detailed Analytics', icon: Activity },
               { id: 'leaves', label: 'Leave Requests', icon: Calendar }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -417,63 +623,6 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
         </div>
 
         <div className="p-6">
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-blue-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-600">Total Attendance Days</p>
-                      <p className="text-2xl font-bold text-blue-900">{attendanceRecords.length}</p>
-                    </div>
-                    <Calendar className="w-8 h-8 text-blue-600" />
-                  </div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-green-600">Total Working Hours</p>
-                      <p className="text-2xl font-bold text-green-900">{Math.round(totalHours / 60)}h {totalHours % 60}m</p>
-                    </div>
-                    <Clock className="w-8 h-8 text-green-600" />
-                  </div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-purple-600">Average Hours/Day</p>
-                      <p className="text-2xl font-bold text-purple-900">{Math.round(avgHoursPerDay / 60)}h {Math.round(avgHoursPerDay % 60)}m</p>
-                    </div>
-                    <BarChart3 className="w-8 h-8 text-purple-600" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-                <div className="space-y-3">
-                  {attendanceRecords.slice(0, 5).map((record) => (
-                    <div key={record.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{record.date}</p>
-                        <p className="text-sm text-gray-600">
-                          {record.loginTime.toLocaleTimeString()} - {record.logoutTime?.toLocaleTimeString() || 'Still working'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">
-                          {record.duration ? `${Math.floor(record.duration / 60)}h ${record.duration % 60}m` : 'In progress'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'attendance' && (
             <div className="space-y-6">
               {/* Month/Year Filters */}
@@ -749,6 +898,144 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ employeeId, onBack })
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              {/* Simple Daily Hours Analytics */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
+                  <Calendar className="w-6 h-6 text-blue-600" />
+                  <span>Daily Hours Summary</span>
+                </h3>
+                
+                {/* Simple Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-blue-50 rounded-lg p-6 text-center">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {(() => {
+                        // Count unique dates instead of total sessions
+                        const uniqueDates = new Set(attendanceRecords.map(record => record.date));
+                        return uniqueDates.size;
+                      })()}
+                    </div>
+                    <div className="text-blue-800 font-medium">Total Days</div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-6 text-center">
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      {Math.round(totalHours / 60)}h
+                    </div>
+                    <div className="text-green-800 font-medium">Total Hours</div>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-6 text-center">
+                    <div className="text-3xl font-bold text-purple-600 mb-2">
+                      {(() => {
+                        const uniqueDates = new Set(attendanceRecords.map(record => record.date));
+                        const uniqueDaysCount = uniqueDates.size;
+                        return uniqueDaysCount > 0 ? Math.round((totalHours / 60) / uniqueDaysCount * 10) / 10 : 0;
+                      })()}h
+                    </div>
+                    <div className="text-purple-800 font-medium">Average/Day</div>
+                  </div>
+                </div>
+
+                {/* Simple Daily List */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Daily Hours Breakdown</h4>
+                  
+                  {attendanceRecords.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg">No attendance records found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {(() => {
+                        // Group attendance records by date and sum hours
+                        const groupedByDate = attendanceRecords.reduce((acc, record) => {
+                          const dateStr = record.date;
+                          if (!acc[dateStr]) {
+                            acc[dateStr] = {
+                              date: dateStr,
+                              totalDuration: 0,
+                              sessions: [],
+                              hasActiveSession: false
+                            };
+                          }
+                          
+                          acc[dateStr].sessions.push(record);
+                          if (record.duration) {
+                            acc[dateStr].totalDuration += record.duration;
+                          } else {
+                            acc[dateStr].hasActiveSession = true;
+                          }
+                          
+                          return acc;
+                        }, {} as Record<string, {
+                          date: string;
+                          totalDuration: number;
+                          sessions: any[];
+                          hasActiveSession: boolean;
+                        }>);
+
+                        // Convert to array and sort by date (most recent first)
+                        const dailySummaries = Object.values(groupedByDate).sort((a, b) => 
+                          new Date(b.date).getTime() - new Date(a.date).getTime()
+                        );
+
+                        return dailySummaries.map((summary) => (
+                          <div key={summary.date} className="bg-white rounded-lg p-4 flex justify-between items-center hover:shadow-md transition-shadow">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <span className="text-blue-600 font-bold">
+                                  {new Date(summary.date).getDate()}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {new Date(summary.date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {summary.sessions.length} session{summary.sessions.length > 1 ? 's' : ''}
+                                  {summary.hasActiveSession && (
+                                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                      Active Session
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${
+                                summary.hasActiveSession ? 'text-blue-600' :
+                                summary.totalDuration >= 480 ? 'text-green-600' :
+                                summary.totalDuration >= 360 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {summary.totalDuration > 0 ? 
+                                  `${Math.floor(summary.totalDuration / 60)}h ${summary.totalDuration % 60}m` : 
+                                  '0h 0m'
+                                }
+                                {summary.hasActiveSession && (
+                                  <span className="text-sm text-blue-600 ml-1">+</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {summary.hasActiveSession ? 'Total + Active' : 'Total Hours'}
+                              </div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
