@@ -11,7 +11,7 @@ import {
   where
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { AttendanceRecord, Holiday, Employee } from '../../types';
+import { AttendanceRecord, Holiday } from '../../types';
 import { 
   Calendar, 
   Clock, 
@@ -23,9 +23,7 @@ import {
   X,
   Users,
   CalendarDays,
-  Star,
-  UserCheck,
-  UserX
+  Star
 } from 'lucide-react';
 import { formatDateTime, formatDuration } from '../../utils/dateUtils';
 import { 
@@ -35,7 +33,6 @@ import {
 const AttendanceView: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -129,29 +126,6 @@ const AttendanceView: React.FC = () => {
       });
       
       setAttendanceRecords(records);
-
-      // Fetch employees
-      const employeesQuery = query(collection(db, 'employees'), orderBy('createdAt', 'desc'));
-      const employeesSnapshot = await getDocs(employeesQuery);
-      const employeesList: Employee[] = [];
-      
-      employeesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        employeesList.push({
-          id: doc.id,
-          employeeId: data.employeeId,
-          name: data.name,
-          email: data.email,
-          username: data.username,
-          role: data.role,
-          idProof: data.idProof,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-          isActive: data.isActive,
-          workingHours: data.workingHours
-        });
-      });
-      
-      setEmployees(employeesList);
 
       // Fetch holidays
       const holidaysQuery = query(collection(db, 'holidays'), orderBy('date', 'asc'));
@@ -257,34 +231,6 @@ const AttendanceView: React.FC = () => {
 
   const getHolidayForDate = (date: string) => {
     return holidays.find(holiday => holiday.date === date);
-  };
-
-  const getPresentEmployeesForDate = (date: string) => {
-    const attendanceForDate = getAttendanceForDate(date);
-    return attendanceForDate.map(record => ({
-      ...employees.find(emp => emp.employeeId === record.employeeId),
-      attendanceRecord: record
-    })).filter(emp => emp.id); // Filter out any undefined employees
-  };
-
-  const getAbsentEmployeesForDate = (date: string) => {
-    const attendanceForDate = getAttendanceForDate(date);
-    const presentEmployeeIds = attendanceForDate.map(record => record.employeeId);
-    
-    // Check if it's a working day for each employee
-    const selectedDateObj = new Date(date);
-    const dayName = selectedDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    
-    return employees.filter(employee => {
-      // Only include active employees
-      if (!employee.isActive) return false;
-      
-      // Check if this is a working day for the employee
-      const isWorkingDay = employee.workingHours.workingDays.includes(dayName);
-      
-      // Employee is absent if they should be working but don't have attendance
-      return isWorkingDay && !presentEmployeeIds.includes(employee.employeeId);
-    });
   };
 
   const isToday = (date: Date) => {
@@ -497,31 +443,12 @@ const AttendanceView: React.FC = () => {
                   </div>
                   
                   {dayAttendance.length > 0 && !holiday && (
-                    <div className="mt-1 space-y-1">
-                      <span className="text-xs bg-green-100 text-green-800 px-1 rounded block">
-                        ✓ {dayAttendance.length}
+                    <div className="mt-1">
+                      <span className="text-xs bg-green-100 text-green-800 px-1 rounded">
+                        {dayAttendance.length} emp
                       </span>
-                      {(() => {
-                        const absentCount = getAbsentEmployeesForDate(dateStr).length;
-                        return absentCount > 0 && (
-                          <span className="text-xs bg-red-100 text-red-800 px-1 rounded block">
-                            ✗ {absentCount}
-                          </span>
-                        );
-                      })()}
                     </div>
                   )}
-                  
-                  {dayAttendance.length === 0 && !holiday && (() => {
-                    const absentCount = getAbsentEmployeesForDate(dateStr).length;
-                    return absentCount > 0 && (
-                      <div className="mt-1">
-                        <span className="text-xs bg-red-100 text-red-800 px-1 rounded">
-                          ✗ {absentCount}
-                        </span>
-                      </div>
-                    );
-                  })()}
                   
                   {holiday && (
                     <div className="mt-1">
@@ -689,115 +616,28 @@ const AttendanceView: React.FC = () => {
           )}
 
           {/* Attendance for Selected Date */}
-          <div className="space-y-6">
-            {/* Present Employees */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <UserCheck className="w-5 h-5 text-green-600" />
-                <h4 className="font-medium text-gray-900">
-                  Employees Present ({getAttendanceForDate(selectedDate).length})
-                </h4>
-              </div>
-              {getAttendanceForDate(selectedDate).map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <span className="text-green-600 font-medium text-sm">
-                        {record.employeeName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-900">{record.employeeName}</span>
-                      <p className="text-xs text-gray-600">ID: {record.employeeId}</p>
-                    </div>
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-900">
+              Employees Present ({getAttendanceForDate(selectedDate).length})
+            </h4>
+            {getAttendanceForDate(selectedDate).map((record) => (
+              <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 font-medium text-sm">
+                      {record.employeeName.charAt(0).toUpperCase()}
+                    </span>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    <div className="text-right">
-                      <div>{record.loginTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
-                      <div className="text-xs">
-                        - {record.logoutTime?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || 'Active'}
-                      </div>
-                      {record.duration && (
-                        <div className="text-xs text-green-600 font-medium">
-                          {Math.floor(record.duration / 60)}h {record.duration % 60}m
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <span className="font-medium">{record.employeeName}</span>
                 </div>
-              ))}
-              {getAttendanceForDate(selectedDate).length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border">
-                  <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No employees present on this day</p>
-                </div>
-              )}
-            </div>
-
-            {/* Absent Employees */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <UserX className="w-5 h-5 text-red-600" />
-                <h4 className="font-medium text-gray-900">
-                  Employees Absent ({getAbsentEmployeesForDate(selectedDate).length})
-                </h4>
-              </div>
-              {getAbsentEmployeesForDate(selectedDate).map((employee) => (
-                <div key={employee.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <span className="text-red-600 font-medium text-sm">
-                        {employee.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-900">{employee.name}</span>
-                      <p className="text-xs text-gray-600">ID: {employee.employeeId}</p>
-                    </div>
-                  </div>
-                  <div className="text-sm text-red-600 font-medium">
-                    Absent
-                  </div>
-                </div>
-              ))}
-              {getAbsentEmployeesForDate(selectedDate).length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border">
-                  <UserX className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No absent employees (all present or non-working day)</p>
-                </div>
-              )}
-            </div>
-
-            {/* Summary */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h5 className="font-medium text-blue-900 mb-2">Daily Summary</h5>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {getAttendanceForDate(selectedDate).length}
-                  </div>
-                  <div className="text-gray-600">Present</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {getAbsentEmployeesForDate(selectedDate).length}
-                  </div>
-                  <div className="text-gray-600">Absent</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {(() => {
-                      const selectedDateObj = new Date(selectedDate);
-                      const dayName = selectedDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                      return employees.filter(emp => 
-                        emp.isActive && emp.workingHours.workingDays.includes(dayName)
-                      ).length;
-                    })()}
-                  </div>
-                  <div className="text-gray-600">Expected</div>
+                <div className="text-sm text-gray-600">
+                  {record.loginTime.toLocaleTimeString()} - {record.logoutTime?.toLocaleTimeString() || 'Active'}
                 </div>
               </div>
-            </div>
+            ))}
+            {getAttendanceForDate(selectedDate).length === 0 && (
+              <p className="text-gray-500 text-center py-4">No employees present on this day</p>
+            )}
           </div>
         </div>
       )}
