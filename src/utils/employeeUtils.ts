@@ -9,16 +9,16 @@ export const generateEmployeeId = async (role: EmployeeRole): Promise<string> =>
     let prefix = '';
     switch (role) {
       case 'admin':
-        prefix = 'HRG-ADM';
+        prefix = 'HGA';
         break;
       case 'employee':
-        prefix = 'HRG-EMP';
+        prefix = 'HGE';
         break;
       case 'intern':
-        prefix = 'HRG-INT';
+        prefix = 'HGI';
         break;
       default:
-        prefix = 'HRG-EMP';
+        prefix = 'HGE';
     }
 
     // Get the last employee with the same role to determine the next number
@@ -53,7 +53,7 @@ export const generateEmployeeId = async (role: EmployeeRole): Promise<string> =>
     console.error('Error generating employee ID:', error);
     // Fallback to timestamp-based ID if there's an error
     const timestamp = Date.now().toString().slice(-3);
-    const prefix = role === 'admin' ? 'HRG-ADM' : role === 'intern' ? 'HRG-INT' : 'HRG-EMP';
+    const prefix = role === 'admin' ? 'HGA' : role === 'intern' ? 'HGI' : 'HGE';
     return `${prefix}-${timestamp}`;
   }
 };
@@ -61,9 +61,9 @@ export const generateEmployeeId = async (role: EmployeeRole): Promise<string> =>
 // Validate employee ID format
 export const validateEmployeeId = (employeeId: string): boolean => {
   const validFormats = [
-    /^HRG-ADM-\d{3}$/,  // HRG-ADM-001
-    /^HRG-EMP-\d{3}$/,  // HRG-EMP-001  
-    /^HRG-INT-\d{3}$/   // HRG-INT-001
+    /^HGA-\d{3}$/,  // HGA-001
+    /^HGE-\d{3}$/,  // HGE-001
+    /^HGI-\d{3}$/   // HGI-001
   ];
   
   return validFormats.some(format => format.test(employeeId));
@@ -71,8 +71,8 @@ export const validateEmployeeId = (employeeId: string): boolean => {
 
 // Get role from employee ID
 export const getRoleFromEmployeeId = (employeeId: string): EmployeeRole => {
-  if (employeeId.startsWith('HRG-ADM')) return 'admin';
-  if (employeeId.startsWith('HRG-INT')) return 'intern';
+  if (employeeId.startsWith('HGA')) return 'admin';
+  if (employeeId.startsWith('HGI')) return 'intern';
   return 'employee';
 };
 
