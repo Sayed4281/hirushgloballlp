@@ -1,29 +1,31 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Users, MessageSquare, Calendar, BarChart3, FileText } from 'lucide-react';
+import { LogOut, Users, MessageSquare, Calendar, FileText, BarChart3 } from 'lucide-react';
 import EmployeeManagement from './EmployeeManagement';
 import AttendanceView from './AttendanceView';
 import MessageCenter from './MessageCenter';
 import AdminHeader from './AdminHeader';
 import AdminLeavePage from './AdminLeavePage';
-import AttendanceReports from './AttendanceReports';
+import EmployeeOverview from './EmployeeOverview';
 
-type TabType = 'employees' | 'attendance' | 'messages' | 'leave' | 'reports';
+type TabType = 'overview' | 'employees' | 'attendance' | 'messages' | 'leave';
 
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('employees');
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const { signOut } = useAuth();
 
   const tabs = [
+    { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
     { id: 'employees' as TabType, label: 'Employees', icon: Users },
     { id: 'attendance' as TabType, label: 'Attendance', icon: Calendar },
     { id: 'leave' as TabType, label: 'Leave Management', icon: FileText },
     { id: 'messages' as TabType, label: 'Messages', icon: MessageSquare },
-    { id: 'reports' as TabType, label: 'Reports', icon: BarChart3 },
   ];
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'overview':
+        return <EmployeeOverview />;
       case 'employees':
         return <EmployeeManagement />;
       case 'attendance':
@@ -32,8 +34,6 @@ const AdminDashboard: React.FC = () => {
         return <AdminLeavePage />;
       case 'messages':
         return <MessageCenter />;
-      case 'reports':
-        return <AttendanceReports />;
       default:
         return null;
     }
