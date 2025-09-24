@@ -167,17 +167,7 @@ const AdminLeavePage: React.FC = () => {
         </button>
       </div>
 
-      {/* Debug Information */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h3>
-        <div className="text-xs text-gray-600 space-y-1">
-          <div>Total leave requests found: {leaves.length}</div>
-          <div>Loading state: {loading ? 'Yes' : 'No'}</div>
-          <div>User authenticated: {user ? 'Yes' : 'No'}</div>
-          <div>User ID: {user?.uid || 'Not available'}</div>
-          <div>Error state: {error || 'No errors'}</div>
-        </div>
-      </div>
+     
 
       {loading && (
         <div className="flex justify-center items-center h-64">

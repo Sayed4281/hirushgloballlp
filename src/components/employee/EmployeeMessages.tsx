@@ -125,13 +125,7 @@ const EmployeeMessages: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-900">Messages</h2>
       </div>
 
-      {/* Debug Info */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
-        <p><strong>User ID:</strong> {user?.uid}</p>
-        <p><strong>User Email:</strong> {user?.email}</p>
-        <p><strong>Messages Count:</strong> {messages.length}</p>
-        <p><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</p>
-      </div>
+      
 
       <div className="space-y-4">
         {messages.map((message) => (

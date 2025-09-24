@@ -141,13 +141,7 @@ const MessageCenter: React.FC = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Send Message</h2>
         
-        {/* Debug Info */}
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
-          <p><strong>Admin User:</strong> {user?.email}</p>
-          <p><strong>Employees Loaded:</strong> {employees.length}</p>
-          <p><strong>Selected Employee:</strong> {selectedEmployee === 'all' ? 'All Employees' : employees.find(e => e.id === selectedEmployee)?.name || 'Unknown'}</p>
-          <p><strong>Messages Count:</strong> {messages.length}</p>
-        </div>
+      
         
         <form onSubmit={sendMessage} className="space-y-4">
           {error && (
