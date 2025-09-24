@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/xlsx": "^0.0.35",
     "date-fns": "^4.1.0",
     "firebase": "^12.2.1",
     "geolib": "^3.3.4",
@@ -17,7 +18,8 @@
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.8.2"
+    "react-router-dom": "^7.8.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

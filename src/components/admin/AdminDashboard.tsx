@@ -6,6 +6,7 @@ import AttendanceView from './AttendanceView';
 import MessageCenter from './MessageCenter';
 import AdminHeader from './AdminHeader';
 import AdminLeavePage from './AdminLeavePage';
+import AttendanceReports from './AttendanceReports';
 
 type TabType = 'employees' | 'attendance' | 'messages' | 'leave' | 'reports';
 
@@ -32,15 +33,7 @@ const AdminDashboard: React.FC = () => {
       case 'messages':
         return <MessageCenter />;
       case 'reports':
-        return (
-          <div className="rounded-lg shadow-md p-4 sm:p-6" style={{ background: '#fff' }}>
-            <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: '#102e50' }}>Reports</h2>
-            <div className="text-center py-8 sm:py-12">
-              <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" style={{ color: '#FFB74D' }} />
-              <p className="text-sm sm:text-base" style={{ color: '#102e50' }}>Reports functionality coming soon...</p>
-            </div>
-          </div>
-        );
+        return <AttendanceReports />;
       default:
         return null;
     }
