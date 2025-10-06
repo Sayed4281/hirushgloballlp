@@ -127,7 +127,7 @@ export const useAttendanceTracking = () => {
     if (!user) return;
 
     try {
-      console.log('Checking current attendance status for user:', user.uid);
+  console.log('[DEBUG] Checking current attendance status for user:', user.uid);
       const today = new Date().toISOString().split('T')[0];
       
       // Query for any active (checked-in) sessions for today
@@ -140,15 +140,23 @@ export const useAttendanceTracking = () => {
       );
 
       const activeSnapshot = await getDocs(activeSessionQuery);
-      console.log('Found', activeSnapshot.size, 'active sessions for today');
+  console.log('[DEBUG] Found', activeSnapshot.size, 'active sessions for today');
       
       if (!activeSnapshot.empty) {
         // Get the most recent active session
         const doc = activeSnapshot.docs[0];
         const data = doc.data();
         
-        console.log('Restoring active session:', data);
-        
+        console.log('[DEBUG] Restoring active session:', data);
+        if (data.employeeId !== user.uid) {
+          console.error('[DEBUG] Mismatch: employeeId in record does not match user.uid');
+        }
+        if (data.date !== today) {
+          console.error('[DEBUG] Mismatch: date in record does not match today');
+        }
+        if (data.status !== 'checked-in') {
+          console.error('[DEBUG] Mismatch: status in record is not checked-in');
+        }
         const session: AttendanceTracking = {
           id: doc.id,
           employeeId: data.employeeId,
@@ -164,21 +172,21 @@ export const useAttendanceTracking = () => {
 
         setCurrentSession(session);
         setIsCheckedIn(true);
-        
+
         // Calculate the current working time
         const now = new Date();
         const checkInTime = new Date(session.checkInTime);
         const diffMs = now.getTime() - checkInTime.getTime();
-        
+
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-        
+
         setWorkingTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-        
-        console.log('Successfully restored active session with working time:', `${hours}:${minutes}:${seconds}`);
+
+        console.log('[DEBUG] Successfully restored active session with working time:', `${hours}:${minutes}:${seconds}`);
       } else {
-        console.log('No active session found for today');
+        console.log('[DEBUG] No active session found for today');
         setIsCheckedIn(false);
         setCurrentSession(null);
         setWorkingTime('00:00:00');
@@ -193,7 +201,15 @@ export const useAttendanceTracking = () => {
   };
 
   const checkIn = useCallback(async () => {
-    if (!user || isCheckedIn) return;
+    if (!user) {
+      console.warn('No user found, cannot check in.');
+      return;
+    }
+    if (isCheckedIn) {
+      console.warn('User is already checked in for today, duplicate check-in prevented.');
+      alert('You are already checked in for today.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -216,17 +232,27 @@ export const useAttendanceTracking = () => {
         employeeName: user.name || user.email || 'Unknown',
         checkInTime: Timestamp.fromDate(now),
         date: today,
-        status: 'checked-in' as const,
-        ...(location && { location }), // Only include location if available
+        status: 'checked-in',
+        ...(location && { location }),
         createdAt: Timestamp.fromDate(now),
         updatedAt: Timestamp.fromDate(now),
       };
 
-      console.log('Attendance data to be saved:', attendanceData);
+      console.log('[DEBUG] Attendance data to be saved:', attendanceData);
 
       const docRef = await addDoc(collection(db, 'attendance'), attendanceData);
-      console.log('Document created with ID:', docRef.id);
-      
+      console.log('[DEBUG] Document created with ID:', docRef.id);
+
+      // Fetch the record back to confirm it was saved correctly
+      // Firestore web SDK does not support docRef.get(), use getDoc instead
+      const { getDoc } = await import('firebase/firestore');
+      const savedDoc = await getDoc(docRef);
+      if (savedDoc.exists()) {
+        console.log('[DEBUG] Saved attendance record:', savedDoc.data());
+      } else {
+        console.error('[DEBUG] Failed to fetch saved attendance record.');
+      }
+
       const newSession: AttendanceTracking = {
         id: docRef.id,
         employeeId: attendanceData.employeeId,
@@ -242,7 +268,7 @@ export const useAttendanceTracking = () => {
       setCurrentSession(newSession);
       setIsCheckedIn(true);
       setWorkingTime('00:00:00');
-      console.log('Check-in successful');
+      console.log('[DEBUG] Check-in successful and state updated.');
     } catch (error) {
       console.error('Detailed check-in error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
