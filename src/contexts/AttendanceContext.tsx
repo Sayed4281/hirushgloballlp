@@ -65,12 +65,15 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
   // Load today's attendance on component mount and when user changes
   useEffect(() => {
     if (user?.uid) {
-      // Always restore check-in state from backend on mount or user change
-      loadTodaysAttendance();
-      loadAllAttendance();
-      setupAttendanceListener();
+      // Always restore the latest session for today after login or page reload
+      const restoreSession = async () => {
+        await loadTodaysAttendance();
+        await loadAllAttendance();
+        setupAttendanceListener();
+      };
+      restoreSession();
     } else {
-      // Only reset state if user logs out, not on network error or reload
+      // Only reset state if user logs out
       setIsCheckedIn(false);
       setCurrentSession(null);
       setAttendanceSessions([]);
