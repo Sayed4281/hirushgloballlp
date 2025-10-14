@@ -65,10 +65,17 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
   // Load today's attendance on component mount and when user changes
   useEffect(() => {
     if (user?.uid) {
+      // Always restore check-in state from backend on mount or user change
       loadTodaysAttendance();
       loadAllAttendance();
-      // Set up real-time listener for attendance changes
       setupAttendanceListener();
+    } else {
+      // Only reset state if user logs out, not on network error or reload
+      setIsCheckedIn(false);
+      setCurrentSession(null);
+      setAttendanceSessions([]);
+      setTodaysSessions([]);
+      setTotalHoursToday(0);
     }
   }, [user]);
 
@@ -242,12 +249,14 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
         duration: duration
       });
 
+      // Only reset state after backend confirms check-out
       setCurrentSession(null);
       setIsCheckedIn(false);
       // Real-time listener will update the data automatically
 
     } catch (err: any) {
       setError(err.message || 'Failed to check out');
+      // Do NOT reset state on error
     } finally {
       setLoading(false);
     }
